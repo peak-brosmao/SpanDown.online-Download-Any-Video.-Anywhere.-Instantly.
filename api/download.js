@@ -16,6 +16,40 @@ function isPrivateHost(hostname) {
   ].some((p) => p.test(hostname));
 }
 
+function buildRequestHeaders(targetUrl, req) {
+  const range = req.headers.range;
+  const common = {
+    Accept: '*/*',
+    'Accept-Encoding': req.headers['accept-encoding'] || 'identity',
+    'Accept-Language': req.headers['accept-language'] || 'en-US,en;q=0.9',
+    'Cache-Control': 'no-cache',
+    Pragma: 'no-cache',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+    ...(range ? { Range: range } : {}),
+  };
+
+  const isGoogleVideo = targetUrl.hostname.endsWith('googlevideo.com');
+  const defaultReferer = isGoogleVideo ? 'https://www.youtube.com/' : `${targetUrl.origin}/`;
+
+  return [
+    {
+      ...common,
+      Referer: defaultReferer,
+      Origin: isGoogleVideo ? 'https://www.youtube.com' : undefined,
+    },
+    {
+      ...common,
+      Referer: 'https://www.youtube.com/',
+      Origin: 'https://www.youtube.com',
+    },
+    {
+      ...common,
+      Referer: defaultReferer,
+    },
+    common,
+  ].map((headers) => Object.fromEntries(Object.entries(headers).filter(([, value]) => value != null && value !== '')));
+}
+
 async function refreshMediaUrl(source, formatId) {
   if (!source || formatId == null) return null;
   const response = await fetch(`https://r-gengpt-api.vercel.app/api/video/download?url=${encodeURIComponent(source)}`, {
@@ -82,36 +116,19 @@ export default async function handler(req, res) {
       if (refreshedUrl) targetUrl = new URL(refreshedUrl);
     }
 
-    const baseHeaders = {
-      Accept: '*/*',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 SnapDown',
-    };
-
-    const isGoogleVideo = targetUrl.hostname.endsWith('googlevideo.com');
-    const requestHeaders = [
-      {
-        ...baseHeaders,
-        Referer: isGoogleVideo ? 'https://www.youtube.com/' : `${targetUrl.origin}/`,
-        ...(isGoogleVideo ? { Origin: 'https://www.youtube.com' } : {}),
-        ...(req.headers.range ? { Range: req.headers.range } : {}),
-      },
-      {
-        ...baseHeaders,
-        ...(req.headers.range ? { Range: req.headers.range } : {}),
-      },
-    ];
-
     let upstream;
-    for (const headers of requestHeaders) {
+    let lastStatus = 0;
+    for (const headers of buildRequestHeaders(targetUrl, req)) {
       upstream = await fetch(targetUrl, { redirect: 'follow', headers });
+      lastStatus = upstream.status;
       if (upstream.ok && upstream.body) break;
     }
 
-    if (!upstream.ok || !upstream.body) {
+    if (!upstream || !upstream.ok || !upstream.body) {
       res.statusCode = 502;
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
-      return res.end(JSON.stringify({ error: `The media server returned ${upstream.status}.` }));
+      return res.end(JSON.stringify({ error: `The media server returned ${lastStatus || upstream?.status || 502}.` }));
     }
 
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
