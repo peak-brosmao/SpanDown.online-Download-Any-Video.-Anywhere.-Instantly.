@@ -41,7 +41,11 @@ async function proxyDownload(request, response) {
         Referer: 'https://www.youtube.com/',
       },
     });
-    if (!upstream.ok || !upstream.body) throw new Error(`Media server returned ${upstream.status}.`);
+    if (!upstream.ok || !upstream.body) {
+      response.writeHead(302, { Location: targetUrl.toString() });
+      response.end();
+      return;
+    }
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
     const filename = safeFilename(requestUrl.searchParams.get('filename'));
     const headers = { 'Content-Type': contentType, 'Content-Disposition': `attachment; filename="${filename}"` };
@@ -51,8 +55,11 @@ async function proxyDownload(request, response) {
     response.flushHeaders();
     Readable.fromWeb(upstream.body).pipe(response);
   } catch (error) {
-    if (!response.headersSent) response.writeHead(502, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify({ error: error.message || 'Unable to download media.' }));
+    if (!response.headersSent) {
+      response.writeHead(302, { Location: targetUrl.toString() });
+      response.end();
+      return;
+    }
   }
 }
 

@@ -80,9 +80,12 @@ export default async function handler(req, res) {
     });
 
     if (!upstream.ok || !upstream.body) {
-      res.statusCode = upstream.status || 502;
-      res.setHeader('Content-Type', 'application/json');
-      return res.end(JSON.stringify({ error: `Media server returned HTTP ${upstream.status}` }));
+      // If the media host blocks server requests (e.g. 403 from Google Video), redirect client directly
+      res.writeHead(302, {
+        Location: targetUrl.toString(),
+        'Access-Control-Allow-Origin': '*',
+      });
+      return res.end();
     }
 
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
@@ -104,9 +107,11 @@ export default async function handler(req, res) {
     Readable.fromWeb(upstream.body).pipe(res);
   } catch (err) {
     if (!res.headersSent) {
-      res.statusCode = 502;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: err.message || 'Unable to download media stream.' }));
+      res.writeHead(302, {
+        Location: targetUrl.toString(),
+        'Access-Control-Allow-Origin': '*',
+      });
+      return res.end();
     }
   }
 }

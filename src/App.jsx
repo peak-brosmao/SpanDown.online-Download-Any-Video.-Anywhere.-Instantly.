@@ -297,6 +297,9 @@ export default function App() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isPlaying, setIsPlaying]   = useState(false);
   const [playerActive, setPlayerActive] = useState(false);
+  const [ytModal, setYtModal]       = useState(false);
+  const [selectedYtUrl, setSelectedYtUrl] = useState('');
+  const [copiedYt, setCopiedYt]     = useState(false);
 
   const videoRef = useRef(null);
 
@@ -402,21 +405,28 @@ export default function App() {
   }, []);
 
   const download = useCallback(async (source, ext) => {
+    const isYouTube = source.includes('googlevideo.com') ||
+                      source.includes('youtube.com') ||
+                      (data?.sourceUrl && (data.sourceUrl.includes('youtube.com') || data.sourceUrl.includes('youtu.be')));
+
+    if (isYouTube) {
+      setSelectedYtUrl(source);
+      setYtModal(true);
+      return;
+    }
+
     const safeTitle = (data?.title || 'snapdown-video')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 50);
     const endpoint = `/api/download?url=${encodeURIComponent(source)}&filename=${encodeURIComponent(`${safeTitle}.${ext || 'mp4'}`)}`;
 
     try {
-      notify('Starting download… Please check your downloads.');
-      const anchor = Object.assign(document.createElement('a'), {
-        href: endpoint,
-        rel: 'noopener',
-      });
-      anchor.style.display = 'none';
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
+      notify('Starting download… Please check your downloads folder.');
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = endpoint;
+      document.body.appendChild(iframe);
+      setTimeout(() => iframe.remove(), 60000);
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Unable to download this file.', 'error');
     }
@@ -668,16 +678,25 @@ export default function App() {
                           <i className="fa-solid fa-download"></i>
                           <span>Download</span>
                         </button>
-                        <a
-                          href={item.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
                           className="dl-btn icon-only"
                           title="Direct Link / Stream"
-                          download
+                          onClick={() => {
+                            const isYouTube = item.url.includes('googlevideo.com') ||
+                                              item.url.includes('youtube.com') ||
+                                              data?.sourceUrl?.includes('youtube.com') ||
+                                              data?.sourceUrl?.includes('youtu.be');
+                            if (isYouTube) {
+                              setSelectedYtUrl(item.url);
+                              setYtModal(true);
+                            } else {
+                              window.open(item.url, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
                         >
                           <i className="fa-solid fa-arrow-up-right-from-square"></i>
-                        </a>
+                        </button>
                       </div>
                     </div>
                   );
@@ -1157,6 +1176,55 @@ export default function App() {
             <button className="btn-search btn-modal-close" type="button" onClick={() => setSettingsOpen(false)}>
               Close
             </button>
+          </div>
+        </div>
+      </div>
+
+      {/* YouTube Modal */}
+      <div
+        className={`yt-modal-overlay ${ytModal ? 'active' : ''}`}
+        onClick={(e) => e.target === e.currentTarget && setYtModal(false)}
+      >
+        <div className="yt-modal-box">
+          <button className="yt-modal-close" type="button" onClick={() => setYtModal(false)} aria-label="Close modal">
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+          <div className="yt-modal-icon">
+            <i className="fa-brands fa-youtube"></i>
+          </div>
+          <h3>YouTube Direct Stream</h3>
+          <p>
+            YouTube streams are protected by Google Video encryption and cannot be downloaded via server proxies. Copy your direct media link below to stream or download via VLC, IDM, or your browser.
+          </p>
+          <div className="yt-link-row">
+            <input className="yt-link-input" readOnly value={selectedYtUrl || url} />
+          </div>
+          <div className="yt-modal-actions">
+            <button
+              className="yt-copy-btn"
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(selectedYtUrl || url);
+                setCopiedYt(true);
+                setTimeout(() => setCopiedYt(false), 2000);
+              }}
+            >
+              <i className={copiedYt ? "fa-solid fa-check" : "fa-regular fa-copy"}></i>
+              <span>{copiedYt ? 'Copied!' : 'Copy Link'}</span>
+            </button>
+            <a
+              href={selectedYtUrl || url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="yt-open-btn"
+              download
+            >
+              <i className="fa-solid fa-arrow-up-right-from-square"></i>
+              <span>Open Direct Stream</span>
+            </a>
+          </div>
+          <div className="yt-note">
+            Tip: Paste into <strong>VLC Media Player</strong> (<kbd>Ctrl</kbd>+<kbd>N</kbd>) or an external download manager to save.
           </div>
         </div>
       </div>
