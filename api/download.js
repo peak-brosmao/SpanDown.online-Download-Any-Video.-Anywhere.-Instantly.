@@ -64,20 +64,30 @@ export default async function handler(req, res) {
   );
 
   try {
-    const upstreamHeaders = {
+    const baseHeaders = {
       Accept: '*/*',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 SnapDown',
-      Referer: targetUrl.origin + '/',
     };
 
-    if (req.headers.range) {
-      upstreamHeaders['Range'] = req.headers.range;
-    }
+    const isGoogleVideo = targetUrl.hostname.endsWith('googlevideo.com');
+    const requestHeaders = [
+      {
+        ...baseHeaders,
+        Referer: isGoogleVideo ? 'https://www.youtube.com/' : `${targetUrl.origin}/`,
+        ...(isGoogleVideo ? { Origin: 'https://www.youtube.com' } : {}),
+        ...(req.headers.range ? { Range: req.headers.range } : {}),
+      },
+      {
+        ...baseHeaders,
+        ...(req.headers.range ? { Range: req.headers.range } : {}),
+      },
+    ];
 
-    const upstream = await fetch(targetUrl, {
-      redirect: 'follow',
-      headers: upstreamHeaders,
-    });
+    let upstream;
+    for (const headers of requestHeaders) {
+      upstream = await fetch(targetUrl, { redirect: 'follow', headers });
+      if (upstream.ok && upstream.body) break;
+    }
 
     if (!upstream.ok || !upstream.body) {
       res.statusCode = 502;

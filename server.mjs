@@ -33,14 +33,25 @@ async function proxyDownload(request, response) {
   }
 
   try {
-    const upstream = await fetch(targetUrl, {
-      redirect: 'follow',
-      headers: {
+    const baseHeaders = {
         Accept: '*/*',
         'User-Agent': 'Mozilla/5.0 SnapDown downloader',
-        Referer: 'https://www.youtube.com/',
+    };
+    const isGoogleVideo = targetUrl.hostname.endsWith('googlevideo.com');
+    const requestHeaders = [
+      {
+        ...baseHeaders,
+        Referer: isGoogleVideo ? 'https://www.youtube.com/' : `${targetUrl.origin}/`,
+        ...(isGoogleVideo ? { Origin: 'https://www.youtube.com' } : {}),
       },
-    });
+      baseHeaders,
+    ];
+    let upstream;
+    for (const headers of requestHeaders) {
+      upstream = await fetch(targetUrl, { redirect: 'follow', headers });
+      if (upstream.ok && upstream.body) break;
+    }
+
     if (!upstream.ok || !upstream.body) {
       response.writeHead(502, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ error: `The media server returned ${upstream.status}.` }));
