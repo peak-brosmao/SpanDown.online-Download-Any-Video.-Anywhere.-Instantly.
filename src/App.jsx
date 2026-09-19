@@ -297,9 +297,6 @@ export default function App() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isPlaying, setIsPlaying]   = useState(false);
   const [playerActive, setPlayerActive] = useState(false);
-  const [ytModal, setYtModal]       = useState(false);
-  const [selectedYtUrl, setSelectedYtUrl] = useState('');
-  const [copiedYt, setCopiedYt]     = useState(false);
 
   const videoRef = useRef(null);
 
@@ -405,16 +402,6 @@ export default function App() {
   }, []);
 
   const download = useCallback(async (source, ext) => {
-    const isYouTube = source.includes('googlevideo.com') ||
-                      source.includes('youtube.com') ||
-                      (data?.sourceUrl && (data.sourceUrl.includes('youtube.com') || data.sourceUrl.includes('youtu.be')));
-
-    if (isYouTube) {
-      setSelectedYtUrl(source);
-      setYtModal(true);
-      return;
-    }
-
     const safeTitle = (data?.title || 'snapdown-video')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 50);
@@ -677,25 +664,6 @@ export default function App() {
                         >
                           <i className="fa-solid fa-download"></i>
                           <span>Download</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="dl-btn icon-only"
-                          title="Direct Link / Stream"
-                          onClick={() => {
-                            const isYouTube = item.url.includes('googlevideo.com') ||
-                                              item.url.includes('youtube.com') ||
-                                              data?.sourceUrl?.includes('youtube.com') ||
-                                              data?.sourceUrl?.includes('youtu.be');
-                            if (isYouTube) {
-                              setSelectedYtUrl(item.url);
-                              setYtModal(true);
-                            } else {
-                              window.open(item.url, '_blank', 'noopener,noreferrer');
-                            }
-                          }}
-                        >
-                          <i className="fa-solid fa-arrow-up-right-from-square"></i>
                         </button>
                       </div>
                     </div>
@@ -1180,54 +1148,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* YouTube Modal */}
-      <div
-        className={`yt-modal-overlay ${ytModal ? 'active' : ''}`}
-        onClick={(e) => e.target === e.currentTarget && setYtModal(false)}
-      >
-        <div className="yt-modal-box">
-          <button className="yt-modal-close" type="button" onClick={() => setYtModal(false)} aria-label="Close modal">
-            <i className="fa-solid fa-xmark"></i>
-          </button>
-          <div className="yt-modal-icon">
-            <i className="fa-brands fa-youtube"></i>
-          </div>
-          <h3>YouTube Direct Stream</h3>
-          <p>
-            YouTube streams are protected by Google Video encryption and cannot be downloaded via server proxies. Copy your direct media link below to stream or download via VLC, IDM, or your browser.
-          </p>
-          <div className="yt-link-row">
-            <input className="yt-link-input" readOnly value={selectedYtUrl || url} />
-          </div>
-          <div className="yt-modal-actions">
-            <button
-              className="yt-copy-btn"
-              type="button"
-              onClick={() => {
-                navigator.clipboard?.writeText(selectedYtUrl || url);
-                setCopiedYt(true);
-                setTimeout(() => setCopiedYt(false), 2000);
-              }}
-            >
-              <i className={copiedYt ? "fa-solid fa-check" : "fa-regular fa-copy"}></i>
-              <span>{copiedYt ? 'Copied!' : 'Copy Link'}</span>
-            </button>
-            <a
-              href={selectedYtUrl || url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="yt-open-btn"
-              download
-            >
-              <i className="fa-solid fa-arrow-up-right-from-square"></i>
-              <span>Open Direct Stream</span>
-            </a>
-          </div>
-          <div className="yt-note">
-            Tip: Paste into <strong>VLC Media Player</strong> (<kbd>Ctrl</kbd>+<kbd>N</kbd>) or an external download manager to save.
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

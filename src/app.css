@@ -1175,18 +1175,6 @@ body.light-theme #themeToggleBtn .icon-sun {
     filter: brightness(1.08);
 }
 
-.dl-btn.icon-only {
-    padding: 8px 10px;
-    background: var(--bg-input);
-    color: var(--text-muted);
-    border: 1px solid var(--border-color);
-}
-
-.dl-btn.icon-only:hover {
-    color: var(--primary);
-    border-color: var(--primary);
-}
-
 /* ==========================================================================
    7. FEATURES
    ========================================================================== */
@@ -2307,4 +2295,3 @@ input:checked+.slider:before {
     font-family: inherit;
     font-size: 0.75rem;
 }
-
