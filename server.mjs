@@ -13,9 +13,22 @@ function safeFilename(value) {
   return (value || 'snapdown-video').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
 }
 
+async function refreshMediaUrl(source, formatId) {
+  if (!source || formatId == null) return null;
+  const response = await fetch(`https://r-gengpt-api.vercel.app/api/video/download?url=${encodeURIComponent(source)}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const formats = payload?.data?.medias || payload?.medias || payload?.data?.formats || payload?.formats || [];
+  return formats.find((item) => String(item?.formatId) === String(formatId))?.url || null;
+}
+
 async function proxyDownload(request, response) {
   const requestUrl = new URL(request.url, `http://${request.headers.host}`);
   const target = requestUrl.searchParams.get('url');
+  const source = requestUrl.searchParams.get('source');
+  const formatId = requestUrl.searchParams.get('formatId');
   if (!target) {
     response.writeHead(400, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify({ error: 'Missing media URL.' }));
@@ -33,6 +46,11 @@ async function proxyDownload(request, response) {
   }
 
   try {
+    if (targetUrl.hostname.endsWith('googlevideo.com') && source && formatId) {
+      const refreshedUrl = await refreshMediaUrl(source, formatId);
+      if (refreshedUrl) targetUrl = new URL(refreshedUrl);
+    }
+
     const baseHeaders = {
         Accept: '*/*',
         'User-Agent': 'Mozilla/5.0 SnapDown downloader',

@@ -16,6 +16,17 @@ function isPrivateHost(hostname) {
   ].some((p) => p.test(hostname));
 }
 
+async function refreshMediaUrl(source, formatId) {
+  if (!source || formatId == null) return null;
+  const response = await fetch(`https://r-gengpt-api.vercel.app/api/video/download?url=${encodeURIComponent(source)}`, {
+    headers: { Accept: 'application/json' },
+  });
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const formats = payload?.data?.medias || payload?.medias || payload?.data?.formats || payload?.formats || [];
+  return formats.find((item) => String(item?.formatId) === String(formatId))?.url || null;
+}
+
 export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -30,6 +41,8 @@ export default async function handler(req, res) {
   const host = req.headers.host || 'snapdown.online';
   const requestUrl = new URL(req.url, `https://${host}`);
   const target = req.query?.url || requestUrl.searchParams.get('url');
+  const source = req.query?.source || requestUrl.searchParams.get('source');
+  const formatId = req.query?.formatId || requestUrl.searchParams.get('formatId');
 
   if (!target) {
     res.statusCode = 400;
@@ -64,6 +77,11 @@ export default async function handler(req, res) {
   );
 
   try {
+    if (targetUrl.hostname.endsWith('googlevideo.com') && source && formatId) {
+      const refreshedUrl = await refreshMediaUrl(source, formatId);
+      if (refreshedUrl) targetUrl = new URL(refreshedUrl);
+    }
+
     const baseHeaders = {
       Accept: '*/*',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 SnapDown',

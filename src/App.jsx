@@ -401,11 +401,17 @@ export default function App() {
     }
   }, []);
 
-  const download = useCallback(async (source, ext) => {
+  const download = useCallback(async (source, ext, formatId) => {
     const safeTitle = (data?.title || 'snapdown-video')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 50);
-    const endpoint = `/api/download?url=${encodeURIComponent(source)}&filename=${encodeURIComponent(`${safeTitle}.${ext || 'mp4'}`)}`;
+    const params = new URLSearchParams({
+      url: source,
+      filename: `${safeTitle}.${ext || 'mp4'}`,
+    });
+    if (data?.sourceUrl) params.set('source', data.sourceUrl);
+    if (formatId != null) params.set('formatId', String(formatId));
+    const endpoint = `/api/download?${params}`;
 
     try {
       notify('Starting download… Please check your downloads folder.');
@@ -676,7 +682,7 @@ export default function App() {
                         <button
                           className="dl-btn"
                           type="button"
-                          onClick={() => download(item.url, ext)}
+                          onClick={() => download(item.url, ext, item.formatId)}
                         >
                           <i className="fa-solid fa-download"></i>
                           <span>Download</span>
