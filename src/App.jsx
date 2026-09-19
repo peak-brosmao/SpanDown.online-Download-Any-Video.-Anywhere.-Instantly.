@@ -668,6 +668,16 @@ export default function App() {
                           <i className="fa-solid fa-download"></i>
                           <span>Download</span>
                         </button>
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="dl-btn icon-only"
+                          title="Direct Link / Stream"
+                          download
+                        >
+                          <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                        </a>
                       </div>
                     </div>
                   );
