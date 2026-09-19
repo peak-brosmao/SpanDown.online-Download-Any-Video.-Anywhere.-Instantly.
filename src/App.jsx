@@ -409,11 +409,27 @@ export default function App() {
 
     try {
       notify('Starting download… Please check your downloads folder.');
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = endpoint;
-      document.body.appendChild(iframe);
-      setTimeout(() => iframe.remove(), 60000);
+      const response = await fetch(endpoint);
+      if (!response.ok) {
+        let message = `Download failed (${response.status}).`;
+        try {
+          const payload = await response.json();
+          if (payload?.error) message = payload.error;
+        } catch {
+          // Keep the status-based error when the proxy does not return JSON.
+        }
+        throw new Error(message);
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${safeTitle}.${ext || 'mp4'}`;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
     } catch (err) {
       notify(err instanceof Error ? err.message : 'Unable to download this file.', 'error');
     }

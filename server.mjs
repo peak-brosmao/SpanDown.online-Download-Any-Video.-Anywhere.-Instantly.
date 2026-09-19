@@ -42,8 +42,8 @@ async function proxyDownload(request, response) {
       },
     });
     if (!upstream.ok || !upstream.body) {
-      response.writeHead(302, { Location: targetUrl.toString() });
-      response.end();
+      response.writeHead(502, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: `The media server returned ${upstream.status}.` }));
       return;
     }
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
@@ -55,10 +55,10 @@ async function proxyDownload(request, response) {
     response.flushHeaders();
     Readable.fromWeb(upstream.body).pipe(response);
   } catch (error) {
+    console.error('Download proxy failed:', error);
     if (!response.headersSent) {
-      response.writeHead(302, { Location: targetUrl.toString() });
-      response.end();
-      return;
+      response.writeHead(502, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Unable to fetch the media file from its source server.' }));
     }
   }
 }

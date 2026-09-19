@@ -80,12 +80,10 @@ export default async function handler(req, res) {
     });
 
     if (!upstream.ok || !upstream.body) {
-      // If the media host blocks server requests (e.g. 403 from Google Video), redirect client directly
-      res.writeHead(302, {
-        Location: targetUrl.toString(),
-        'Access-Control-Allow-Origin': '*',
-      });
-      return res.end();
+      res.statusCode = 502;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.end(JSON.stringify({ error: `The media server returned ${upstream.status}.` }));
     }
 
     const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
@@ -106,12 +104,12 @@ export default async function handler(req, res) {
 
     Readable.fromWeb(upstream.body).pipe(res);
   } catch (err) {
+    console.error('Download proxy failed:', err);
     if (!res.headersSent) {
-      res.writeHead(302, {
-        Location: targetUrl.toString(),
-        'Access-Control-Allow-Origin': '*',
-      });
-      return res.end();
+      res.statusCode = 502;
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.end(JSON.stringify({ error: 'Unable to fetch the media file from its source server.' }));
     }
   }
 }
